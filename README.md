@@ -7,7 +7,7 @@ Each project in this account has it's own README file. These READMEs explain the
 ## List of projects
 Written below is a list of the projects available in this repository, following the format:
 
-Name: Short description (Tools used) \[Year of completion\]
+Name: Short description *(Tools used)* \[Year of completion\]
 
 - [plcov](/plcov) : a prolog coverage tool that uses instrumentation *(prolog, bash, testing)* [2023]
 - [scheduler](/scheduler): a constraint optimization problem solved with minizinc *(minizinc, COP, ERP)* [2023]
