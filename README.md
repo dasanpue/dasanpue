@@ -9,9 +9,9 @@ Written below is a list of the projects available in this repository, following 
 
 Name: Short description (Tools used) \[Year of completion\]
 
-- [plcov](/plcov) : a prolog coverage tool that uses instrumentation (Prolog, bash) [2023]
-- [scheduler](/scheduler): a constraint optimization problem solved with minizinc [2023]
-- [pennbook](/pennbook): a facebook clone complete with chatrooms and news feed [2022]
-- [trend predictor](/trend%20predictor): a big data analytics pipeline that predicts emerging topics in academic fields [2022]
-- [review analyser](/review%20analyser): a machine learning pipline that predicts ratings from amazon reviews [2022]
-- ray marching: a ray marching 3D renderer developed in Java with no external libraries [2020]
+- [plcov](/plcov) : a prolog coverage tool that uses instrumentation *(prolog, bash, testing)* [2023]
+- [scheduler](/scheduler): a constraint optimization problem solved with minizinc *(minizinc, COP, ERP)* [2023]
+- [pennbook](/pennbook): a facebook clone complete with chatrooms and news feed *(nodejs, aws, spark, java)* [2022]
+- [trend predictor](/trend%20predictor): a big data analytics pipeline that predicts emerging topics in academic fields *(python, pandas, aws, sql, spark)* [2022]
+- [review analyser](/review%20analyser): a machine learning pipline that predicts ratings from amazon reviews *(python, scikit-learn, nlp)* [2022]
+- ray marching: a ray marching 3D renderer developed in Java with no external libraries *(java, algorithms)* [2020]
