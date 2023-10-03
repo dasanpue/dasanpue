@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<style>
+  div.invisible {
+    visibility: hidden;
+  }
+</style>
+<script type="text/javascript">
+
+  function apply_changes() {
+    changes = read_changes();
+
+    fetch('http://localhost:8080/postsettings', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(changes)
+    })
+      .then(response => response.json())
+      .then(response => {
+        display_message(response.message, response.type);
+        if (response.type == "success") {
+          // Create post if the user's interests have changed
+          if (document.getElementById('interests').value !== '') {
+            post = {
+              creator: "<%= user.username %>",
+              user_wall: "<%= user.username %>",
+              create_time: new Date(),
+              content: `Status Update: <%= user.first_name.S %> <%= user.last_name.S %> is interested in ${document.getElementById('interests').value}`
+            };
+            fetch('http://localhost:8080/postpost', {
+              method: 'POST',
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(post)
+            }).catch(err => console.log(err));
+          }
+
+          document.getElementById('email').placeholder = document.getElementById('email').value == "" ? document.getElementById('email').placeholder : document.getElementById('email').value;
+          document.getElementById('affiliation').placeholder = document.getElementById('affiliation').value == "" ? document.getElementById('affiliation').placeholder : document.getElementById('affiliation').value;
+          document.getElementById('interests').placeholder = document.getElementById('interests').value == "" ? document.getElementById('interests').placeholder : document.getElementById('interests').value;
+        }
+        document.getElementById('email').value = "";
+        document.getElementById('affiliation').value = "";
+        document.getElementById('interests').value = "";
+      });
+  }
+
+  function read_changes() {
+    return {
+      email: document.getElementById('email').value,
+      affiliation: document.getElementById('affiliation').value,
+      interests: document.getElementById('interests').value
+    };
+  }
+
+  function change_password() {
+    let password = prompt('Please enter your current password');
+    let newpass = prompt('Please enter your new password');
+    let newpassagain = prompt('Please enter your new password again');
+    if (newpass == newpassagain & newpass != null) {
+      fetch('http://localhost:8080/changepassword', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ old: password, new: newpass })
+      })
+        .then(response => response.json())
+        .then(response => { display_message(response.message, response.type); });
+    } else {
+      display_message("Passwords do not match", "danger")
+    }
+  }
+
+  function display_message(message, type) {
+    document.getElementById("message").innerHTML = message;
+    document.getElementById("message").className = "alert alert-" + type + " visible";
+  }
+
+</script>
+
+<head>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-Zenh87qX5JnK2Jl0vWa8Ck2rdkQ2Bzep5IDxbcnCeuOxjzrPF/et3URy9Bv1WTRi" crossorigin="anonymous">
+  <script language="javascript" type="text/javascript" src="../js/friendsearch.js"></script>
+  <script language="javascript" type="text/javascript" src="../js/navbar.js"></script>
+</head>
+<main-navbar></main-navbar>
+
+<body>
+  <div class="p-4">
+    <h1 class="display-4 mb-4">Pennbook Account Settings</h1>
+    <form action="" method="" onsubmit="return false">
+      <div class="w-50 mb-4">
+        <div class="row mb-3">
+          <label for="username" class="col-sm-3 col-lg-2 col-form-label">Username</label>
+          <div class="col-sm-9 col-lg-10">
+            <input class="form-control" id="formControlDisabled" type="text" placeholder="<%= user.username %>"
+              aria-label="disabled input example" disabled />
+          </div>
+        </div>
+        <div class="row mb-3">
+          <label for="firstname" class="col-sm-3 col-lg-2 col-form-label">First Name</label>
+          <div class="col-sm-9 col-lg-10">
+            <input class="form-control" id="formControlDisabled" type="text" placeholder="<%= user.first_name.S %>"
+              aria-label="disabled input example" disabled />
+          </div>
+        </div>
+        <div class="row mb-3">
+          <label for="lastname" class="col-sm-3 col-lg-2 col-form-label">Last Name</label>
+          <div class="col-sm-9 col-lg-10">
+            <input class="form-control" id="formControlDisabled" type="text" placeholder="<%= user.last_name.S %>"
+              aria-label="disabled input example" disabled />
+          </div>
+        </div>
+        <div class="row mb-3">
+          <label for="email" class="col-sm-3 col-lg-2 col-form-label">Email</label>
+          <div class="col-sm-9 col-lg-10">
+            <input type="email" name="email" id="email" class="form-control" placeholder="<%= user.email_address.S %>">
+          </div>
+        </div>
+        <div class="row mb-3">
+          <label for="affiliation" class="col-sm-3 col-lg-2 col-form-label">Affiliation</label>
+          <div class="col-sm-9 col-lg-10">
+            <input type="text" name="affiliation" id="affiliation" class="form-control"
+              placeholder="<%= user.affiliation.S %>">
+          </div>
+        </div>
+        <div class="row mb-3">
+          <label for="birthday" class="col-sm-3 col-lg-2 col-form-label">Birthday</label>
+          <div class="col-sm-9 col-lg-10">
+            <input class="form-control" id="formControlDisabled" type="text" placeholder="<%= user.birthday.S %>"
+              aria-label="disabled input example" disabled />
+          </div>
+        </div>
+        <div class="row mb-3">
+          <label for="interests" class="col-sm-3 col-lg-2 col-form-label">Interests (at least two)</label>
+          <div class="col-sm-9 col-lg-10">
+            <input type="text" name="interests" id="interests" class="form-control"
+              placeholder="<%= user.interests.SS.join(', ') %>">
+          </div>
+        </div>
+        <input class="btn btn-primary" type="submit" value="Apply changes" onclick="apply_changes()">
+        <input class="btn btn-warning" type="submit" value="Change password" onclick="change_password()">
+      </div>
+    </form>
+    <br />
+    <div class="alert alert-danger invisible" id='message' , role="alert">Message</div>
+  </div>
+</body>
+
+</html>

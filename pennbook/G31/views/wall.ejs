@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html>
+<style>
+  div.tab {
+    position: relative;
+    margin-left: 20px;
+  }
+</style>
+<script script type="text/javascript">
+  function removeFriend(username, timestamp) {
+    $.ajax({
+      url: '/deletefriend/' + username + '/' + timestamp,
+      type: 'DELETE',
+      success: function (data) {
+        document.getElementById('remove-friend-btn').remove();
+        const addFriendBtn = document.createElement('button');
+        addFriendBtn.className = 'btn btn-primary btn-success';
+        addFriendBtn.id = 'add-friend-btn';
+        addFriendBtn.innerHTML = 'Add Friend';
+        addFriendBtn.onclick = function () {
+          addNewFriend(username);
+        };
+        document.getElementById('friend-btn').appendChild(addFriendBtn);
+      }
+    });
+  }
+</script>
+<script script type="text/javascript">
+  function addNewFriend(username) {
+    $.ajax({
+      url: '/addfriend/' + username,
+      type: 'POST',
+      success: function (data) {
+        location.reload();
+      }
+    });
+  }
+</script>
+
+
+<script type="text/javascript">
+  let posts = [];
+  let comments = {};
+  let active_element_comment = null;
+  active_posts = {};
+  url_str = 'http://localhost:8080/';
+
+  recieve_new_posts_server(true, () => {
+    for (let i = 0; i < posts.length; ++i) {
+      recieve_new_comments_server(posts[i], i, () => { });
+    }
+  });
+  setTimeout(refresh, 6000);
+
+
+  // REFRESH ------------------------------------------------------------------------------
+
+  function refresh() {
+    // update posts
+    recieve_new_posts_server(false,
+      () => {
+        // for every post, update comments
+        for (let i = 0; i < posts.length; ++i) {
+          recieve_new_comments_server(posts[i], i, () => { });
+        }
+      }
+    );
+    setTimeout(refresh, 4000)
+  }
+
+
+  // POSTS BACKEND COMMUNICATION -------------------------------------------------------------
+
+  // calls the backend for posts and executes a callback over results
+  function recieve_new_posts_server(first_exec, callback) {
+    fetch(url_str + 'getposts/<%= user_wall%>', {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    })
+      // transform response to dictionary
+      .then(response => response.json())
+      // .then(response => { console.log('RESPONSE AS RECIEVED FROM SERVER:'); return response; })
+      // .then(response => { console.log(response); return response; })
+      // dates need to be cast
+      .then(response => cast_dates(response))
+      // .then(response => { console.log('RESPONSE AFTER DATE CAST:'); return response; })
+      // .then(response => { console.log(response); return response; })
+      // find new posts
+      .then(response => extract_posts(response))
+      // .then(response => { console.log('EXTRACTED POSTS:'); return response; })
+      // .then(response => { console.log(response); return response; })
+      // find posts not in wall
+      .then(posts => posts_not_updated(posts))
+      // .then(response => { console.log('POSTS NOT UPDATED:'); return response; })
+      // .then(response => { console.log(response); return response; })
+      // add posts not in wall, showing html only if this is not the first execution
+      .then(posts => add_new_posts(first_exec, posts))
+      // .then(response => { console.log('AFTER ADDING POSTS:'); return response; })
+      // .then(response => { console.log(response); return response; })
+      // run the callback
+      .then(callback);
+  }
+
+  // cast dates in post list from backend
+  function cast_dates(server_response) {
+    for (i = 0; i < server_response.posts.length; ++i) {
+      server_response.posts[i].create_time = new Date(server_response.posts[i].create_time);
+    }
+    return server_response;
+  }
+
+  // check existing posts against backend posts for differences
+  function extract_posts(server_response) {
+    if (server_response.message.type != "success") {
+      display_message(server_response.message.content, server_response.message.type);
+      return [];
+    }
+    // filter backend posts if not in frontend posts
+    return server_response.posts;
+  }
+
+  // filter backend posts if not in walls posts
+  function posts_not_updated(backend_posts) {
+    not_in_wall = backend_posts.filter(backend_post => {
+      for (i = 0; i < posts.length; ++i) {
+        if (equals_(backend_post, posts[i])) { return false; }
+      }
+      return true;
+    });
+    return not_in_wall;
+  }
+
+  // add posts not in wall, showing html only if this is not the first execution
+  function add_new_posts(first_exec, server_posts) {
+    if (first_exec) {
+      posts = server_posts;
+    } else {
+      for (i = 0; i < server_posts.length; ++i) {
+        add_post_html(server_posts[i]);
+      }
+    }
+    return server_posts;
+  }
+
+  // add the post html to the dom
+  function add_post_html(post) {
+    document.getElementById("wall").insertAdjacentHTML("afterbegin",
+      '<div id="post' + posts.length + '" class="list-group-item list-group-item-action" onclick="show_comments(this)">' +
+      '<div class="row justify-content-between">' +
+      '<div class="col-7 d-flex ">' +
+      '<h5 class="mb-1">' + post.content + '</h5>' +
+      '</div>' +
+      '<div class="col-1 text-end">' +
+      '<span id="post' + posts.length + 'count" style="border-radius: 30px;" class="badge bg-secondary">0</span>' +
+      '</div>' +
+      '</div>' +
+      '<div class="row justify-content-between">' +
+      '<div class="col-4 d-flex align-text-bottom">' +
+      '<span class="text-muted"><i>' +
+      '' + post.creator + '</i>' +
+      '<span style="margin-left: 10px;font-size: 10px;">' + post.create_time.toISOString().slice(0, 10) + '</span>' +
+      '</span>' +
+      '</div>' +
+      '<div id="reply" class="col-4 text-end" onclick="comment_input_show(this);event.stopPropagation();">' +
+      '<a href="" onclick="return false;"><span><i class="fa fa-reply"></i> reply</span></a>' +
+      '</div>' +
+      '</div>' +
+      '</div>');
+    document.getElementById('post_text').value = "";
+    posts.push(post);
+    return Promise.resolve(true);
+  }
+
+
+  // COMMENTS BACKEND COMMUNICATION ----------------------------------------------------------
+
+  // calls the backend for comments and executes a callback over results
+  function recieve_new_comments_server(post, post_number, callback) {
+    let post_id = 'post' + post_number;
+    // create GET url
+    url = new URL(url_str + 'getcomments');
+    url.searchParams.append('user_wall', post.user_wall);
+    url.searchParams.append('create_time', post.create_time.toISOString());
+    // we want to wait until all comments are retrieved and updated, before continuing other ajax calls, or we run the risk of ajax calls resolving in incorrect order
+    fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    })
+      // transform response to dictionary
+      .then(response => response.json())
+      // .then(response => { console.log('COMMENTS FOR POST' + post_number + ' AS RECIEVED FROM SERVER:'); return response; })
+      // .then(response => { console.log(response); return response; })
+      // check if server response is successfull and extracts comments
+      .then(response => extract_comments(response))
+      // .then(response => { console.log('COMMENTS EXTRACTED:'); return response; })
+      // .then(response => { console.log(response); return response; })
+      // dates need to be cast
+      .then(comments => cast_comment_dates(comments))
+      // .then(response => { console.log('COMMENTS CAST TO DATES:'); return response; })
+      // .then(response => { console.log(response); return response; })
+      // update value in comment tag
+      .then(comments => update_comment_count_tag(post_id, comments.length, comments))
+      // .then(response => { console.log('COMMENTS AFTER UPDATING TAG:'); return response; })
+      // .then(response => { console.log(response); return response; })
+      // update comment dictionary if the posts comments are currently hidden
+      .then(comments => refresh_hidden_comments(post_id, comments))
+      // .then(response => { console.log('COMMENTS AFTER REFRESHING HIDDEN COMMENTS:'); return response; })
+      // .then(response => { console.log(response); return response; })
+      // find changes in displayed comments, along with their position
+      .then(comments => comments_not_updated(post_id, comments))
+      // .then(response => { console.log('COMMENTS AFTER FILTERING CHANGES:'); return response; })
+      // .then(response => { console.log(response); return response; })
+      // insert individual comments to the webpage html
+      .then(indexed_comments => insert_comments(post_id, indexed_comments))
+      // .then(response => { console.log('COMMENTS AFTER INSERTION:'); return response; })
+      // .then(response => { console.log(response); return response; })
+      // redo the comment id's to match the new comments
+      .then(indexed_comments => redo_comment_ids(post_id))
+      // run the callback
+      .then(callback);
+  }
+
+  // check if server response is successfull and extract comments
+  function extract_comments(response) {
+    if (response.message.type != "success") {
+      display_message(response.message.content, response.message.type);
+      return [];
+    }
+    return response.comments;
+  }
+
+  // cast dates in comments list from backend
+  function cast_comment_dates(comments) {
+    for (let i = 0; i < comments.length; ++i) {
+      comments[i].create_time = new Date(comments[i].create_time);
+    }
+    return comments;
+  }
+
+  // update value in comment tag for post with id
+  function update_comment_count_tag(post_id, count, comments_toreturn) {
+    element = document.getElementById(post_id + 'count');
+    element.textContent = count;
+    // if no comments, color it grey
+    if (count == 0) {
+      element.className = "badge bg-secondary";
+    } else {
+      element.className = "badge bg-primary";
+    }
+    return comments_toreturn;
+  }
+
+  // update comment dictionary for comments that are hidden
+  function refresh_hidden_comments(post_id, new_comments) {
+    if (!active_posts[post_id]) {
+      comments[post_id] = new_comments;
+      return [];
+    }
+    return new_comments;
+  }
+
+  // find comments that need to be added, along with their postition
+  function comments_not_updated(post_id, server_comments) {
+    let j = 0;
+    return server_comments
+      // add an index to the comments so they can later be added to the correct position
+      .map(x => [j++, x])
+      // find comments not present in the entry of the comment dictionary for this post
+      .filter(server_comment => {
+        for (let j = 0; j < comments[post_id].length; ++j) {
+          server_comment_nested = server_comment[1].nested;
+          server_comment[1].nested = comments[post_id][j].nested;
+          if (equals_(server_comment[1], comments[post_id][j])) { return false; }
+          server_comment[1].nested = server_comment_nested;
+        }
+        return true;
+      });
+  }
+
+  // insert individual comments to the webpage html
+  function insert_comments(post_id, server_comments) {
+    for (let j = 0; j < server_comments.length; j++) {
+      add_comment_html(
+        server_comments[j][1], // the comment
+        post_id, // the id of the post
+        (server_comments[j][0] == 0) ? post_id : post_id + 'comm' + (server_comments[j][0] - 1), // the id of the element before
+        post_id + 'comm' + comments[post_id].length, // the id of the comment
+        (server_comments[j][1].nested == 1 ? 'nest' : (server_comments[j][1].nested == -1 ? 'unnest' : '')) // the action ('nest','unnest','')
+      );
+      comments[post_id].splice(server_comments[j][0], 0, server_comments[j][1]); //.push(server_comments[j][1]);
+    }
+    return server_comments;
+  }
+
+  // add the comment html to the dom
+  function add_comment_html(comment, post_id, before_id, comment_id, header) {
+    element = document.getElementById(before_id);
+    if (header == 'unnest') element = element.parentElement;
+    if (element == null) {
+      console.log('element not found, id: ' + before_id);
+    } else {
+      element.insertAdjacentHTML('afterend',
+        ((header != 'nest') ? '' :
+          '<div id="nest" class="flex-grow-1 flex-shrink-1 tab">') +
+        '<div id=' + comment_id + ' class="row justify-content-between" onmouseover="show_reply(this)" onmouseout="hide_reply(this)">' +
+        '<div class="col-4 d-flex align-text-bottom ">' +
+        '<ul class="list-group list-group-flush">' +
+        '<li style="padding: 0px 0px" class="list-group-item">' +
+        '<p style="line-height: 1.3">' +
+        '<span style="font-size:85%" class="fw-bold">' + comment.creator + ' </span>' +
+        '<span style="font-size:75%" class="text-muted">· ' + comment.create_time.toISOString().slice(0, 10) + '</span> <br>' +
+        '' + comment.content + ' <br>' +
+        '</p>' +
+        '</li>' +
+        '</ul>' +
+        '</div>' +
+        '<div id="reply" class="col-4 text-end invisible" onclick="comment_input_show(this)">' +
+        '<a href="" onclick="return false;"><span>reply</span></a>' +
+        '</div>' +
+        '</div>' +
+        ((header != 'nest') ? '' :
+          '</div>'
+        ));
+    }
+  }
+
+  // redo comment ids so they are sorted in order
+  function redo_comment_ids(post_id) {
+    post_comments = document.querySelectorAll('[id^="' + post_id + 'comm' + '"]');
+    for (let i = 0; i < post_comments.length; ++i) {
+      post_comments[i].id = post_id + 'comm' + i;
+    }
+  }
+
+
+  // SHOW COMMENTS -------------------------------------------------------------------------
+
+  function show_comments(element) {
+    comment_input_hide()
+    if (active_posts[element.id]) {
+      root = element.nextSibling.remove();
+      active_posts[element.id] = false;
+    } else {
+      post_comments = (comments[element.id]) ? comments[element.id] : [];
+      root = element.id;
+      for (let i = 0; i < post_comments.length; ++i) {
+        nest_action = (post_comments[i].nested == 1 ? 'nest' : (post_comments[i].nested == -1 ? 'unnest' : ''));
+        comment_id = element.id + 'comm' + i;
+        add_comment_html(post_comments[i], element.id, root, comment_id, nest_action);
+        root = comment_id;
+      }
+      if (post_comments.length != 0) active_posts[element.id] = true;
+    }
+  }
+
+
+  // POSTING CONTENT ------------------------------------------------------------------------
+
+  // add post to posts, run on post button hit
+  function add_post_form() {
+    post = {
+      creator: "<%= username%>",
+      user_wall: "<%= user_wall%>",
+      create_time: new Date(),
+      content: document.getElementById('post_text').value
+    };
+
+    fetch(url_str + 'postpost', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(post)
+    })
+      .then(response => response.json())
+      .then(response => {
+        if (response.type == "success") {
+          add_post_html(post)
+        } else {
+          display_message(response.message, response.type);
+        }
+      });
+  }
+
+  // show comment card
+  function comment_input_show(element) {
+    element = element.parentElement;
+    if (element.parentElement.id != "nest") {
+      element = element.parentElement;
+    }
+    comment_input_hide();
+    active_element_comment = element;
+    element.insertAdjacentHTML('afterend',
+      '<div class="card" id="comment_card">' +
+      '<div class="card-footer py-3 border-0" style="background-color: #f8f9fa;">' +
+      '<div class="row justify-content-between">' +
+      '<div class="col-10">' +
+      '<div class="form-outline w-100">' +
+      '<textarea class="form-control" id="comment_text" rows="1" style="background: #fff;" placeholder="Type your comment here..."></textarea>' +
+      '</div>' +
+      '</div>' +
+      '<div class="col-2">' +
+      '<button type="button" class="btn btn-primary btn-sm" onclick="submit_comment(this)">Post comment</button>' +
+      '<button type="button" class="btn btn-outline-primary btn-sm" onclick="comment_input_hide()">Cancel</button>' +
+      '</div>' +
+      '</div>' +
+      '</div>' +
+      '</div>'
+    );
+  }
+
+  // hide comment card
+  function comment_input_hide() {
+    if (active_element_comment != null) {
+      document.getElementById('comment_card').remove();
+      active_element_comment = null;
+    }
+  }
+
+  // parse a comment from the submission card
+  function submit_comment(element) {
+    element_id = active_element_comment.id;
+
+    // create a comment dictionary to store the values
+    comment = {
+      content: document.getElementById('comment_text').value,
+      create_time: new Date().toISOString(),
+      creator: "<%= username%>"
+    }
+
+    // values will vary in calculation depending if it's a nested or non-nested comment
+    if (element_id.includes('comm')) {
+      comm = comments[element_id.substring(0, element_id.indexOf('comm'))][element_id.substring(element_id.indexOf('comm') + 4)];
+
+      post_id_refresh = element_id.substring(0, element_id.indexOf('comm'));
+
+      comment.number = comments[element_id.substring(0, element_id.indexOf('comm'))].length
+      comment.post_id = comm.post_id;
+      comment.nested = comm.number;
+    } else {
+      post = posts[element_id.substring(element_id.indexOf('post') + 4)];
+
+      post_id_refresh = element_id;
+
+      comment.number = (comments[element_id]) ? comments[element_id].length : 0;
+      comment.post_id = post.user_wall + ',' + post.create_time.toISOString();
+      comment.nested = -1;
+    }
+    // send comment to server
+    post_comment(post_id_refresh, comment);
+    // hide comment card
+    comment_input_hide();
+  }
+
+  // post comment to server
+  function post_comment(post_id_refresh, comment) {
+    fetch(url_str + 'postcomment', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(comment)
+    })
+      .then(response => response.json())
+      // check response for any errors
+      .then(response => {
+        if (response.type == "success") {
+          const current_user = "<%= username %>";
+        } else {
+          display_message(response.message, response.type);
+        }
+      })
+      // send a call to read comments from server, which will also add the comment html and all other necessary attributes
+      .then(() => {
+        // for every post, update comments
+        let index = post_id_refresh.substring(element_id.indexOf('post') + 4)
+        recieve_new_comments_server(posts[index], index, () => { });
+      });
+  }
+
+  // show reply button (activated in over)
+  function show_reply(element) {
+    element.querySelector('#reply').className = 'col-2 text-end visible';
+  }
+
+  // hide reply button (activated in over)
+  function hide_reply(element) {
+    element.querySelector('#reply').className = 'col-2 text-end invisible';
+  }
+
+
+  // GENERAL PURPOSE ------------------------------------------------------------------------
+
+  // display a message, used for errors
+  function display_message(message, type) {
+    document.getElementById("message").innerHTML = message;
+    document.getElementById("message").className = "alert alert-" + type + " visible";
+  }
+
+  // custom equals to compare objects
+  function equals_(a, b) {
+    if (Object.keys(a).length !== Object.keys(b).length) {
+      return false;
+    }
+    for (const key in a) {
+      const a_val = a[key];
+      const b_val = b[key];
+      if ((a_val instanceof Object && !equals_(a_val, b_val)) || (!(a_val instanceof Object) && a_val !== b_val)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+
+</script>
+
+<head>
+  <!-- CSS only -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-Zenh87qX5JnK2Jl0vWa8Ck2rdkQ2Bzep5IDxbcnCeuOxjzrPF/et3URy9Bv1WTRi" crossorigin="anonymous">
+  <script language="javascript" type="text/javascript" src="../js/friendsearch.js"></script>
+  <script language="javascript" type="text/javascript" src="../js/navbar.js"></script>
+</head>
+<main-navbar></main-navbar>
+
+<body>
+  <div class="p-4">
+    <div class="col-md-12 d-flex align-items-center d-flex justify-content-between">
+      <h1>
+        Wall for <%= user_wall %>
+      </h1>
+      <% if (user_wall !==username) { %>
+        <div id="friend-btn">
+          <% if (!are_friends) { %>
+            <button id='add-friend-btn' type="button" class="btn btn-primary btn-success"
+              onclick="addNewFriend('<%= user_wall %>')">Add Friend</button>
+            <% } else { %>
+              <button id='remove-friend-btn' type="button" class="btn btn-primary btn-danger"
+                onclick="removeFriend('<%= user_wall %>', '<%= are_friends %>')">Remove Friend</button>
+              <% } %>
+        </div>
+        <% } %>
+    </div>
+    <div class="list-group mb-3" id="wall">
+      <% for(i=0; i < posts.length; ++i) { %>
+        <div id="post<%=posts.length - i - 1%>" class="list-group-item list-group-item-action"
+          onclick="show_comments(this)" onmouseover="show_reply(this)" onmouseout="hide_reply(this)">
+          <div class="row justify-content-between">
+            <div class="col-7 d-flex ">
+              <h5 class="mb-1">
+                <%= posts[i].content.S %>
+              </h5>
+            </div>
+            <div class="col-1 text-end">
+              <span id="post<%=posts.length - i - 1%>count" style="border-radius: 30px;"
+                class="badge bg-secondary">0</span>
+            </div>
+          </div>
+          <div class="row justify-content-between">
+            <div class="col-4 d-flex align-text-bottom">
+              <span class="text-muted"><i>
+                  <%= posts[i].creator.S %>
+                </i>
+                <span style="margin-left: 10px;font-size: 10px;">
+                  <%= posts[i].create_time.S.toISOString().slice(0,10) %>
+                </span>
+              </span>
+            </div>
+            <div id="reply" class="col-2 text-end invisible"
+              onclick="comment_input_show(this); event.stopPropagation();">
+              <a href="" onclick="return false;"><span>reply</span></a>
+            </div>
+          </div>
+        </div>
+        <% } %>
+    </div>
+    <% if (are_friends || user_wall==username) { %>
+      <div class="input-group mb-3">
+        <input class="form-control form-control-lg" type="text" id="post_text" placeholder="Write post...">
+        <div class="input-group-append">
+          <button class="btn btn-primary btn-lg ms-2" type="button" onclick="add_post_form()">Add post</button>
+        </div>
+      </div>
+      <% } else { %>
+        <div class="alert alert-primary" role="alert">
+          You are not friends with this user. You can only view their posts.
+        </div>
+        <% } %>
+          <div class="alert alert-danger invisible" id='message' role="alert">
+          </div>

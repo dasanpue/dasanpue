@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <!-- CSS only -->
+  <script language="javascript" type="text/javascript" src="../js/friendsearch.js"></script>
+  <script language="javascript" type="text/javascript" src="../js/navbar.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-Zenh87qX5JnK2Jl0vWa8Ck2rdkQ2Bzep5IDxbcnCeuOxjzrPF/et3URy9Bv1WTRi" crossorigin="anonymous"> 
+
+  <style>
+    @import url(https://fonts.googleapis.com/css?family=Varela+Round);
+
+    *,
+    *:before,
+    *:after {
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #b9babe;
+      font-family: "Varela Round", sans-serif;
+    }
+
+    .card {
+      background: #c6d2e4;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.4);
+      border-radius: 5px;
+      margin: 50px 20px 20px 20px;
+      width: calc(33.3333% - 40px);
+      height: 550px;
+      /* 1/3 minus the margins (20+20) */
+      padding: 20px;
+      text-align: center;
+      color: rgb(5, 5, 5);
+      float: left;
+    }
+
+    @media (max-width: 768px) {
+      .card {
+        margin: 10px 20px;
+        width: calc(100% - 40px);
+      }
+
+      .card:first-child {
+        margin-top: 20px;
+      }
+    }
+
+    .card:nth-child(2) {
+      margin: 20px 0px;
+      width: 33.3333%;
+      padding: 50px 20px;
+    }
+
+    @media (max-width: 768px) {
+      .card:nth-child(2) {
+        margin: 10px 20px;
+        width: calc(100% - 40px);
+      }
+    }
+
+    .card .title {
+      font-size: 25px;
+    }
+
+    .card .icon {
+      margin: 50px 0;
+    }
+
+    .card .icon svg {
+      width: 100px;
+      height: 100px;
+    }
+
+    .card .icon svg path {
+      fill: #52ebf6;
+    }
+
+    .card .features ul {
+      padding: 0;
+      margin: 20px 0 50px 0;
+      list-style-type: none;
+    }
+
+    .card .features ul li {
+      margin: 10px 0;
+      font-size: 14px;
+    }
+
+    .card .features ul li span {
+      border-bottom: 2px dotted #F6B352;
+    }
+
+    .card .btn {
+      display: block;
+      background: #52f6e0;
+      color: rgb(8, 8, 8);
+      padding: 15px 20px;
+      margin: 20px 0;
+      border-radius: 5px;
+      box-shadow: rgba(0, 0, 0, 0.9);
+      transition: all 200ms ease-in-out;
+      text-decoration: none;
+    }
+
+    .card .btn:hover {
+      background: #27c993;
+    }
+
+    .card .liked-btn {
+      display: block;
+      background: #5286f6;
+      color: rgb(8, 8, 8);
+      padding: 15px 20px;
+      margin: 20px 0;
+      border-radius: 5px;
+      box-shadow: rgba(0, 0, 0, 0.9);
+      transition: all 200ms ease-in-out;
+      text-decoration: none;
+    }
+
+    .card .notliked-btn {
+      display: block;
+      background: #52f6b2;
+      color: rgb(8, 8, 8);
+      padding: 15px 20px;
+      margin: 20px 0;
+      border-radius: 5px;
+      box-shadow: rgba(0, 0, 0, 0.9);
+      transition: all 200ms ease-in-out;
+      text-decoration: none;
+    }
+
+  </style>
+</head>
+<main-navbar></main-navbar>
+
+<body>
+  <h1>Your top recommended news articles:-</h1>
+
+
+  <% newsfeedDB.forEach(function(item) { %>
+    <div class="card">
+
+      <div class="title">
+        <%=item[0].headline%>
+      </div>
+
+      <p>
+        <%=item[0].short_description%>
+      </p>
+
+      <br>
+
+      <div class="features">
+        <ul>
+          <li><span>Authors:</span>
+            <%=item[0].authors%>
+          </li>
+          <li><span>Category:</span>
+            <%=item[0].category%>
+          </li>
+          <li><span>Date:</span>
+            <%=item[0].date%>
+          </li>
+        </ul>
+      </div>
+
+      <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script> 
+    
+      <script>
+        function changeColor (passed_link) {
+          var passed_username = "<%= username %>"
+          var passed_link = passed_link.slice(7);
+          console.log(passed_link);
+          if ($(this).attr('class') === 'liked-btn') {
+            $(this).toggleClass('liked-btn notliked-btn');
+            $(this).html("Like this article");
+            $.ajax({
+              url: '/deletenewslikes/'  + passed_username + '/' + encodeURIComponent(passed_link),
+              type: 'POST'
+            });
+          } else {
+            $(this).toggleClass('notliked-btn liked-btn');
+            $(this).html("Liked!");
+            $.ajax({
+              url: '/addnewslikes/' + passed_username + '/' + encodeURIComponent(passed_link),
+              type: 'POST'
+            });
+          }
+        };
+      </script>
+
+      <a href=<%=item[0].link%> class="btn">Check it out</a>
+      <% if (item[0].is_liked) { %>
+        <button id="button_<%= item[0].link %>" class="liked-btn" 
+        onclick="changeColor.call(this, this.id)">Liked!</button>
+      <% } else { %>
+        <button id="button_<%= item[0].link %>" class="notliked-btn" 
+        onclick="changeColor.call(this, this.id)">Like this article</button>
+      <%} %>
+
+    </div>
+
+    <% });%>
+
+
+</body>
+
+</html>

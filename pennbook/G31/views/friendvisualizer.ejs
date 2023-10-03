@@ -1,0 +1,128 @@
+<!DOCTYPE html
+    PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Friendship Visualizer</title>
+
+    <!-- CSS Files -->
+    <link type="text/css" href="../css/base.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-Zenh87qX5JnK2Jl0vWa8Ck2rdkQ2Bzep5IDxbcnCeuOxjzrPF/et3URy9Bv1WTRi" crossorigin="anonymous">
+
+    <!--[if IE]><script language="javascript" type="text/javascript" src="../../Extras/excanvas.js"></script><![endif]-->
+
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+    <!-- JIT Library File -->
+    <script language="javascript" type="text/javascript" src="../js/jit.js"></script>
+    <script language="javascript" type="text/javascript" src="../js/friendsearch.js"></script>
+    <script language="javascript" type="text/javascript" src="../js/navbar.js"></script>
+
+    <!-- Example File -->
+    <script language="javascript" type="text/javascript" src="../js/friendvisualizer.js"></script>
+    <script>
+        function removeFriend(username) {
+            $.ajax({
+                url: '/deletefriend/' + username,
+                type: 'DELETE',
+                success: function (data) {
+                    document.getElementById(username + "-card").remove();
+                }
+            });
+        }
+
+        // AJAX call to get the friends list every 60 seconds
+        setInterval(function () {
+            $.ajax({
+                url: '/friendsupdate',
+                type: 'GET',
+                dataType: 'json',
+                success: function (data) {
+                    const sortedFriends = data.sort((a, b) => (a.username < b.username) ? -1 : 1);
+                    var friendList = document.getElementById("friend-list");
+                    friendList.innerHTML = "";
+                    // console.log('friends' + friends);
+                    for (let i = 0; i < data.length; i++) {
+                        const friend = JSON.parse(JSON.stringify(data[i]))
+                        const friendCard = document.createElement("div");
+                        friendCard.className = "card";
+                        friendCard.id = friend.username + "-card";
+                        const friendCardBody = document.createElement("div");
+                        friendCardBody.className = "card-body";
+                        const friendCardTitle = document.createElement("h5");
+                        friendCardTitle.className = "card-title";
+                        const friendLink = document.createElement("a");
+                        friendLink.href = "/wall/" + friend.username;
+                        friendLink.innerHTML = friend.first_name + " " + friend.last_name;
+                        friendCardTitle.appendChild(friendLink);
+                        const friendCardSubtitle = document.createElement("h6");
+                        friendCardSubtitle.className = "card-title";
+                        friendCardSubtitle.innerHTML = "(" + friend.username + ")";
+                        friendCardBody.appendChild(friendCardTitle);
+                        friendCardBody.appendChild(friendCardSubtitle);
+                        if (friend.is_online) {
+                            const badge = document.createElement("span");
+                            badge.className = "badge rounded-pill text-bg-success";
+                            badge.innerHTML = "Online";
+                            friendCardBody.appendChild(badge);
+                        } else {
+                            const badge = document.createElement("span");
+                            badge.className = "badge rounded-pill text-bg-danger";
+                            badge.innerHTML = "Offline";
+                            friendCardBody.appendChild(badge);
+                        }
+                        const friendCardButton = document.createElement("button");
+                        friendCardButton.className = "btn btn-outline-danger btn-sm ms-2";
+                        friendCardButton.innerHTML = "Remove Friend";
+                        friendCardButton.onclick = function () {
+                            removeFriend(friend.username);
+                        }
+                        friendCardBody.appendChild(friendCardButton);
+                        friendCard.appendChild(friendCardBody);
+                        friendList.appendChild(friendCard);
+                    }
+                }
+            })
+        }, 60000);
+
+
+    </script>
+</head>
+<main-navbar></main-navbar>
+
+<body>
+    <h1 class="p-4"> Friends </h1>
+    <div id="container" class="container">
+        <div class="row h-100">
+            <div class="col overflow-auto" style="height: 600px;">
+                <h4>List of Friends</h4>
+                <div id="friend-list">
+                    <% for (let i=0; i < friends.length; i++) { %>
+                        <div class="card mb-2" id="<%= friends[i].username %>-card">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <a href="/wall/<%= friends[i].username %>">
+                                        <%= friends[i].first_name %>
+                                            <%= friends[i].last_name %>
+                                    </a>
+                                </h5>
+                                <h6 class="card-title">(<%= friends[i].username %>)</h6>
+                                <% if (friends[i].is_online) { %>
+                                    <span class="badge rounded-pill text-bg-success">Online</span>
+                                    <% } else { %>
+                                        <span class="badge rounded-pill text-bg-danger">Offline</span>
+                                        <% } %>
+                            </div>
+                        </div>
+                        <% } %>
+                </div>
+            </div>
+            <div id="center-container" class="col-8 h-100">
+                <div id="infovis"></div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
